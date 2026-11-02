@@ -37,8 +37,8 @@ export class RadarRenderer {
     this.ctx = ctx;
 
     this.config = {
-      minAngle: 20,
-      maxAngle: 160,
+      minAngle: 0,
+      maxAngle: 180,
       maxDistanceCm: 100,
       distanceSteps: [25, 50, 75, 100],
       sampleTtlMs: 8000,

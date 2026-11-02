@@ -24,8 +24,14 @@ if %BUILD_EXIT_CODE% neq 0 (
 )
 
 echo.
-echo [OK] Website build succeeded! Generated assets in site/dist/:
-dir /b /s "%SCRIPT_DIR%site\dist"
-
+echo [INFO] Embedding web assets into firmware/include/site_assets.h for single-flash deployment ...
 cd /d "%SCRIPT_DIR%"
+node scripts\embed_assets.js
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Asset embedding failed with exit code %ERRORLEVEL%.
+    exit /b %ERRORLEVEL%
+)
+
+echo.
+echo [OK] Website build and firmware embedding succeeded!
 exit /b 0

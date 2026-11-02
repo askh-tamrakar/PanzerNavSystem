@@ -1,24 +1,64 @@
 /**
  * PanzerNavSystem - Local Hardware & Network Overrides
  *
- * Copy this file to "config.local.h" to customize Wi-Fi credentials,
- * pin assignments, or calibration. "config.local.h" is ignored by git.
+ * Copy this file to "config.local.h" to customize hardware profiles,
+ * actuator limits, calibration, or Wi-Fi credentials.
+ * "config.local.h" is ignored by git.
  */
 
 #ifndef CONFIG_LOCAL_H
 #define CONFIG_LOCAL_H
 
-// --- Wi-Fi Access Point Customization ---
-// #define WIFI_AP_SSID       "MyTank-AP"
-// #define WIFI_AP_PASS       "supersecretpassword"
+// =============================================================================
+// 1. WI-FI ACCESS POINT (PRIMARY / DEFAULT MODE)
+// =============================================================================
+// The ESP-12E broadcasts its own local Wi-Fi network. No internet is required.
+// Change these values to personalize your tank's network.
+// A private password (minimum 8 characters) is required to prevent unauthorized access.
 
-// --- Wi-Fi Station Mode (Connect to home Wi-Fi) ---
-// #define WIFI_STA_SSID      "HomeWiFi_SSID"
-// #define WIFI_STA_PASS      "HomeWiFi_Password"
+// #define WIFI_AP_SSID           "MyTank-AP"
+// #define WIFI_AP_PASS           "mysecretpass123"
+// #define WIFI_AP_CHANNEL        1
 
-// --- Radar Sweep Calibration ---
-// #define SERVO_MIN_ANGLE    25
-// #define SERVO_MAX_ANGLE    155
-// #define OBSTACLE_THRESHOLD_CM 25.0f
+// Custom Access Point IP address (defaults to 192.168.4.1)
+// #define WIFI_AP_IP_OCT1        192
+// #define WIFI_AP_IP_OCT2        168
+// #define WIFI_AP_IP_OCT3        4
+// #define WIFI_AP_IP_OCT4        1
+
+// =============================================================================
+// 2. HARDWARE PROFILE SELECTION
+// =============================================================================
+// Options:
+//   PROFILE_UNCONFIRMED         (Default: locks out propulsion until verified)
+//   PROFILE_A_DC_MOTORS         (4 DC Motors via 2x L298N + 4 auxiliary servos)
+//   PROFILE_B_PROPULSION_SERVOS (4 Propulsion Servos + 4 auxiliary servos, 2x L298N unused)
+
+// #define ACTIVE_HARDWARE_PROFILE PROFILE_A_DC_MOTORS
+
+// --- Profile B: Propulsion Servo Type & Calibration ---
+// #define PROPULSION_SERVO_TYPE   PROPULSION_SERVO_TYPE_CONTINUOUS
+// #define SERVO_PULSE_NEUTRAL_US  1500  // Calibrated stop pulse in microseconds
+// #define SERVO_PULSE_FORWARD_MAX_US 2000
+// #define SERVO_PULSE_REVERSE_MAX_US 1000
+
+// =============================================================================
+// 3. ACTUATOR & SENSOR CALIBRATION
+// =============================================================================
+// #define STEERING_MIN_ANGLE      45
+// #define STEERING_MAX_ANGLE      135
+// #define AIMING_MIN_ANGLE        30
+// #define AIMING_MAX_ANGLE        150
+// #define SCANNER_MIN_ANGLE       30
+// #define SCANNER_MAX_ANGLE       150
+// #define OBSTACLE_THRESHOLD_CM   22.0f
+
+// =============================================================================
+// 4. OPTIONAL STATION WI-FI (FOR DEVELOPER / APACHE HOSTING ONLY)
+// =============================================================================
+// Leave blank for standard ESP-hosted Access Point mode.
+// Only fill in if you need the ESP to join an existing home Wi-Fi network.
+// #define WIFI_STA_SSID          "HomeWiFi_SSID"
+// #define WIFI_STA_PASS          "HomeWiFi_Password"
 
 #endif // CONFIG_LOCAL_H

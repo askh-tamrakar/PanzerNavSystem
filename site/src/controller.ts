@@ -1,16 +1,27 @@
 /**
  * Tank Controller & WebSocket Transport Client
+ * Manages 8 actuators:
+ * - 4 Propulsion channels (Forward/Reverse/Speed/Stop)
+ * - 2 Steering servos (Left & Right angle)
+ * - 1 Aiming servo (Pan angle)
+ * - 1 Ultrasonic scanner servo
  */
 
 import {
   DriveDirection,
   ObstacleMode,
+  HardwareProfile,
   TelemetryData,
   ScanSample,
   ConnectionState,
 } from './types';
 import {
   buildDriveMessage,
+  buildSteeringMessage,
+  buildAimingMessage,
+  buildScannerConfigMessage,
+  buildScannerManualMessage,
+  buildProfileSelectMessage,
   buildStopMessage,
   buildModeMessage,
   buildEffectMessage,
@@ -19,6 +30,12 @@ import {
   parseServerMessage,
   SPEED_MIN,
   SPEED_MAX,
+  STEERING_MIN_ANGLE,
+  STEERING_MAX_ANGLE,
+  STEERING_CENTER_ANGLE,
+  AIMING_MIN_ANGLE,
+  AIMING_MAX_ANGLE,
+  AIMING_CENTER_ANGLE,
 } from './protocol';
 
 const STORAGE_WS_KEY = 'panzer_nav_ws_url';
@@ -30,6 +47,7 @@ export interface ControllerCallbacks {
   onScanSample: (sample: ScanSample) => void;
   onObstacleAlert: (obstacle: boolean, distCm: number) => void;
   onModeChange: (mode: ObstacleMode) => void;
+  onProfileChange: (profile: HardwareProfile) => void;
 }
 
 export class TankController {
@@ -38,9 +56,16 @@ export class TankController {
   private connectionState: ConnectionState = 'disconnected';
   private reconnectTimer: number | null = null;
   private pingInterval: number | null = null;
+
   private currentDirection: DriveDirection = 'stop';
   private currentSpeed: number = DEFAULT_SPEED;
   private obstacleMode: ObstacleMode = 'auto';
+  private hardwareProfile: HardwareProfile = 'unconfirmed';
+
+  private steeringLeft: number = STEERING_CENTER_ANGLE;
+  private steeringRight: number = STEERING_CENTER_ANGLE;
+  private aimingAngle: number = AIMING_CENTER_ANGLE;
+
   private callbacks: ControllerCallbacks;
   private isAutoReconnectEnabled: boolean = true;
   private reconnectAttempts: number = 0;
@@ -68,6 +93,23 @@ export class TankController {
     this.reconnect();
   }
 
+  public getHardwareProfile(): HardwareProfile {
+    return this.hardwareProfile;
+  }
+
+  public setHardwareProfile(profile: HardwareProfile): void {
+    this.hardwareProfile = profile;
+    this.callbacks.onProfileChange(profile);
+    if (this.isConnected()) {
+      try {
+        const msg = buildProfileSelectMessage(profile);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send profile select message:', e);
+      }
+    }
+  }
+
   public getSpeed(): number {
     return this.currentSpeed;
   }
@@ -77,7 +119,6 @@ export class TankController {
     if (this.currentSpeed === bounded) return;
     this.currentSpeed = bounded;
 
-    // If currently driving, update firmware with new speed
     if (this.currentDirection !== 'stop') {
       this.sendDrive(this.currentDirection, this.currentSpeed);
     }
@@ -100,9 +141,116 @@ export class TankController {
     }
   }
 
+  public setSteering(leftAngle: number, rightAngle: number): void {
+    this.steeringLeft = Math.max(STEERING_MIN_ANGLE, Math.min(STEERING_MAX_ANGLE, Math.round(leftAngle)));
+    this.steeringRight = Math.max(STEERING_MIN_ANGLE, Math.min(STEERING_MAX_ANGLE, Math.round(rightAngle)));
+    if (this.isConnected()) {
+      try {
+        const msg = buildSteeringMessage(this.steeringLeft, this.steeringRight);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send steering command:', e);
+      }
+    }
+  }
+
+  public getSteering(): { left: number; right: number } {
+    return { left: this.steeringLeft, right: this.steeringRight };
+  }
+
+  public setAiming(angle: number): void {
+    this.aimingAngle = Math.max(AIMING_MIN_ANGLE, Math.min(AIMING_MAX_ANGLE, Math.round(angle)));
+    if (this.isConnected()) {
+      try {
+        const msg = buildAimingMessage(this.aimingAngle);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send aiming command:', e);
+      }
+    }
+  }
+
+  public getAiming(): number {
+    return this.aimingAngle;
+  }
+
+  public setScannerConfig(minAngle: number, maxAngle: number, stepDeg: number, mode: 'auto' | 'manual' = 'auto'): void {
+    if (this.isConnected()) {
+      try {
+        const msg = buildScannerConfigMessage(minAngle, maxAngle, stepDeg, mode);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send scanner config command:', e);
+      }
+    }
+  }
+
+  public scannerStepLeft(stepDeg?: number): void {
+    if (this.isConnected()) {
+      try {
+        const msg = buildScannerManualMessage('step_left', undefined, stepDeg);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send scanner step left command:', e);
+      }
+    }
+  }
+
+  public scannerStepRight(stepDeg?: number): void {
+    if (this.isConnected()) {
+      try {
+        const msg = buildScannerManualMessage('step_right', undefined, stepDeg);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send scanner step right command:', e);
+      }
+    }
+  }
+
+  public scannerSetManualAngle(angle: number): void {
+    if (this.isConnected()) {
+      try {
+        const msg = buildScannerManualMessage('set_angle', angle);
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send scanner manual angle command:', e);
+      }
+    }
+  }
+
+  public scannerTriggerPing(): void {
+    if (this.isConnected()) {
+      try {
+        const msg = buildScannerManualMessage('ping');
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send scanner ping command:', e);
+      }
+    }
+  }
+
+  public scannerSetAuto(): void {
+    if (this.isConnected()) {
+      try {
+        const msg = buildScannerManualMessage('auto');
+        this.sendRaw(serializeMessage(msg));
+      } catch (e) {
+        console.error('Failed to send scanner auto command:', e);
+      }
+    }
+  }
+
   public startDrive(dir: DriveDirection): void {
+    if (this.hardwareProfile === 'unconfirmed') {
+      console.warn('Drive blocked: hardware profile is unconfirmed.');
+      this.callbacks.onConnectionChange(
+        this.connectionState,
+        'Cannot drive: Hardware profile is unconfirmed. Confirm Profile A or B in settings.'
+      );
+      return;
+    }
+
     if (this.currentDirection === dir) {
-      // Avoid spamming identical drive command
       return;
     }
     this.currentDirection = dir;
@@ -158,13 +306,11 @@ export class TankController {
       return saved;
     }
 
-    // If served from ESP8266 LittleFS web server, hostname is the ESP's IP
     const host = window.location.hostname;
     if (host && host !== '' && host !== 'localhost' && host !== '127.0.0.1') {
       return `ws://${host}:81/`;
     }
 
-    // Default fallback to standard ESP Access Point IP
     return 'ws://192.168.4.1:81/';
   }
 
@@ -185,11 +331,15 @@ export class TankController {
       this.reconnectAttempts = 0;
       this.updateState('connected', `Connected to ${this.wsUrl}`);
 
-      // Sync initial mode
+      // Sync mode and profile
       const modeMsg = buildModeMessage(this.obstacleMode);
       this.sendRaw(serializeMessage(modeMsg));
 
-      // Start ping heartbeat
+      if (this.hardwareProfile !== 'unconfirmed') {
+        const profMsg = buildProfileSelectMessage(this.hardwareProfile);
+        this.sendRaw(serializeMessage(profMsg));
+      }
+
       this.pingInterval = window.setInterval(() => {
         if (this.isConnected()) {
           try {
@@ -207,10 +357,17 @@ export class TankController {
       if (!msg) return;
 
       if (msg.type === 'telemetry') {
+        if (msg.profile && msg.profile !== this.hardwareProfile) {
+          this.hardwareProfile = msg.profile;
+          this.callbacks.onProfileChange(msg.profile);
+        }
+        if (typeof msg.steeringLeftAngle === 'number') this.steeringLeft = msg.steeringLeftAngle;
+        if (typeof msg.steeringRightAngle === 'number') this.steeringRight = msg.steeringRightAngle;
+        if (typeof msg.aimingAngle === 'number') this.aimingAngle = msg.aimingAngle;
+
         this.callbacks.onTelemetry(msg);
         this.callbacks.onObstacleAlert(msg.obstacle, msg.distCm);
         if (msg.state === 'obstacle_stop' && this.currentDirection !== 'stop') {
-          // Firmware auto-stopped motors due to obstacle
           this.currentDirection = 'stop';
         }
       } else if (msg.type === 'scan') {
@@ -240,7 +397,6 @@ export class TankController {
   private scheduleReconnect(): void {
     if (this.reconnectTimer !== null) return;
     this.reconnectAttempts++;
-    // Exponential backoff capped at 6 seconds
     const delay = Math.min(6000, 1000 * Math.min(6, this.reconnectAttempts));
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
@@ -293,7 +449,6 @@ export class TankController {
   }
 
   private bindWindowEvents(): void {
-    // Safety critical: stop motors if page loses focus, user switches tabs, or page unloads
     window.addEventListener('blur', () => this.stopDrive());
     window.addEventListener('visibilitychange', () => {
       if (document.hidden) {

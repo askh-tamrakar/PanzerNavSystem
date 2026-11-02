@@ -92,10 +92,9 @@ if not exist "firmware\include\config.local.h" (
 
 echo.
 echo =======================================================================
-echo Setup complete! You are ready to build the site and firmware:
+echo Setup complete! You are ready to build and upload:
+echo   - Run upload_all.bat to compile and flash BOTH site and firmware in ONE single flash.
 echo   - Run build_site.bat to compile the website.
 echo   - Run build_all.bat to build both the website and firmware.
-echo   - Run upload_firmware.bat to flash the ESP-12E board.
-echo   - Run upload_site.bat to upload the website into LittleFS.
 echo =======================================================================
 exit /b 0

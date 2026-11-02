@@ -7,6 +7,48 @@ echo =======================================================================
 
 set "SCRIPT_DIR=%~dp0"
 
+set "TARGET_ENV="
+set "EXTRA_ARGS="
+
+:parse_loop
+if "%~1"=="" goto after_parse
+if /i "%~1"=="esp32" (
+    set "TARGET_ENV=esp32dev"
+    shift
+    goto parse_loop
+)
+if /i "%~1"=="esp32dev" (
+    set "TARGET_ENV=esp32dev"
+    shift
+    goto parse_loop
+)
+if /i "%~1"=="esp8266" (
+    set "TARGET_ENV=nodemcuv2"
+    shift
+    goto parse_loop
+)
+if /i "%~1"=="esp12e" (
+    set "TARGET_ENV=nodemcuv2"
+    shift
+    goto parse_loop
+)
+if /i "%~1"=="nodemcu" (
+    set "TARGET_ENV=nodemcuv2"
+    shift
+    goto parse_loop
+)
+if /i "%~1"=="nodemcuv2" (
+    set "TARGET_ENV=nodemcuv2"
+    shift
+    goto parse_loop
+)
+set "EXTRA_ARGS=!EXTRA_ARGS! %1"
+shift
+goto parse_loop
+
+:after_parse
+if not defined TARGET_ENV set "TARGET_ENV=nodemcuv2"
+
 :: Locate PlatformIO
 set "PIO_CMD="
 where pio >nul 2>&1
@@ -28,9 +70,15 @@ if not defined PIO_CMD (
     exit /b 1
 )
 
-echo [INFO] Running PlatformIO firmware upload with arguments: %*
+:: Ensure embedded site assets header exists for single-flash deployment
+if not exist "%SCRIPT_DIR%firmware\include\site_assets.h" (
+    echo [INFO] Generating embedded web assets header before firmware build...
+    call "%SCRIPT_DIR%build_site.bat"
+)
+
+echo [INFO] Flashing combined firmware + embedded web control panel to %TARGET_ENV%...
 cd /d "%SCRIPT_DIR%firmware"
-"%PIO_CMD%" run --target upload %*
+"%PIO_CMD%" run -e %TARGET_ENV% --target upload !EXTRA_ARGS!
 set "UPLOAD_EXIT_CODE=%ERRORLEVEL%"
 
 cd /d "%SCRIPT_DIR%"
@@ -47,5 +95,7 @@ if %UPLOAD_EXIT_CODE% neq 0 (
 )
 
 echo.
-echo [OK] Firmware successfully uploaded to ESP-12E!
+echo [OK] Combined firmware binary (with embedded website) successfully uploaded to ESP-12E!
+echo Both firmware and website are active in flash from this single upload.
+echo Open http://192.168.4.1/ on your phone connected to "PanzerTank-AP".
 exit /b 0

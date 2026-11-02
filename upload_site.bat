@@ -4,6 +4,9 @@ setlocal enabledelayedexpansion
 echo =======================================================================
 echo          PanzerNavSystem - Build & Upload Site to LittleFS
 echo =======================================================================
+echo [TIP] For a single combined upload of both firmware and site at once,
+echo       run "upload_all.bat" instead.
+echo.
 
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"

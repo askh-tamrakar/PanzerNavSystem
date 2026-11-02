@@ -78,7 +78,10 @@ if %PIO_EXIT_CODE% neq 0 (
 echo.
 echo =======================================================================
 echo [OK] Full build completed successfully!
-echo   - Site is built and staged in firmware/data
-echo   - Firmware binary is compiled in firmware/.pio/build/
+echo   - Website and firmware are combined into ONE unified binary
+echo   - Output binary: firmware/.pio/build/nodemcuv2/firmware.bin
+echo.
+echo To upload both website and firmware in a SINGLE FLASH:
+echo   upload_all.bat
 echo =======================================================================
 exit /b 0
