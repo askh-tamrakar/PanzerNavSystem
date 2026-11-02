@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+site/dist/
+site/dist-ssr/
+*.local
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+
+# Local configurations & secrets
+firmware/include/config.local.h
+
+# Keep LittleFS data directory structure in git
+firmware/data/*
+!firmware/data/.gitkeep
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

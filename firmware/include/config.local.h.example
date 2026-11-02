@@ -1,0 +1,24 @@
+/**
+ * PanzerNavSystem - Local Hardware & Network Overrides
+ *
+ * Copy this file to "config.local.h" to customize Wi-Fi credentials,
+ * pin assignments, or calibration. "config.local.h" is ignored by git.
+ */
+
+#ifndef CONFIG_LOCAL_H
+#define CONFIG_LOCAL_H
+
+// --- Wi-Fi Access Point Customization ---
+// #define WIFI_AP_SSID       "MyTank-AP"
+// #define WIFI_AP_PASS       "supersecretpassword"
+
+// --- Wi-Fi Station Mode (Connect to home Wi-Fi) ---
+// #define WIFI_STA_SSID      "HomeWiFi_SSID"
+// #define WIFI_STA_PASS      "HomeWiFi_Password"
+
+// --- Radar Sweep Calibration ---
+// #define SERVO_MIN_ANGLE    25
+// #define SERVO_MAX_ANGLE    155
+// #define OBSTACLE_THRESHOLD_CM 25.0f
+
+#endif // CONFIG_LOCAL_H

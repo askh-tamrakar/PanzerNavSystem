@@ -1,0 +1,2 @@
+# Staging directory for LittleFS filesystem image
+# Produced files from site/dist are copied here before running uploadfs.

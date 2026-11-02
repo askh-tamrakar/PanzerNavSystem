@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Mobile-friendly Wi-Fi control panel and ultrasonic sweep display for ESP-12E tank model" />
+  <meta name="theme-color" content="#0c1017" />
+  <title>PanzerNavSystem - Tactical Tank Control</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-group">
+      <svg class="brand-icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#0c1017"/>
+        <rect x="12" y="14" width="8" height="36" rx="3" fill="#00e5ff" opacity="0.8"/>
+        <rect x="44" y="14" width="8" height="36" rx="3" fill="#00e5ff" opacity="0.8"/>
+        <rect x="22" y="18" width="20" height="28" rx="4" fill="#1c2637" stroke="#00e5ff" stroke-width="2"/>
+        <circle cx="32" cy="32" r="5" fill="#00e5ff"/>
+      </svg>
+      <div>
+        <h1 class="app-title">PANZER NAV SYSTEM</h1>
+        <div class="app-subtitle">ESP-12E ULTRASONIC SWEEP CONTROL</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Connection Badge -->
+      <div id="conn-badge" class="conn-badge disconnected" role="status" aria-live="polite">
+        <span class="conn-dot" aria-hidden="true"></span>
+        <span id="conn-text">Disconnected</span>
+      </div>
+
+      <!-- Theme Toggle -->
+      <button id="theme-toggle-btn" class="btn-icon" aria-label="Toggle dark and light theme" title="Toggle Theme">
+        <svg id="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <svg id="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <main class="app-main">
+    <!-- Left Column: Radar & Telemetry -->
+    <section class="panel-card" aria-labelledby="radar-panel-title">
+      <div class="card-header">
+        <h2 id="radar-panel-title" class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+            <path d="M2 12h20"></path>
+          </svg>
+          Sensor Sweep Display
+        </h2>
+        <span id="obstacle-mode-badge" class="telem-label">MODE: AUTO STOP</span>
+      </div>
+
+      <!-- Obstacle Alert Banner -->
+      <div id="obstacle-banner" class="obstacle-alert clear" role="alert" aria-live="assertive">
+        <span id="obstacle-status-text">PATH CLEAR</span>
+        <span id="obstacle-distance-text">Sensor: -- cm</span>
+      </div>
+
+      <!-- Radar Canvas -->
+      <div class="radar-container">
+        <div class="radar-canvas-wrap">
+          <canvas id="radar-canvas" class="radar-canvas" aria-label="Ultrasonic sweep polar visualization"></canvas>
+        </div>
+        <div class="radar-disclaimer">
+          Visualization of ultrasonic distance samples by servo angle. Not true radar or object recognition. Scans during tank movement may be skewed.
+        </div>
+      </div>
+
+      <!-- Live Telemetry Grid -->
+      <div class="telemetry-grid">
+        <div class="telem-cell">
+          <span class="telem-label">Tank State</span>
+          <span id="telem-state" class="telem-val">IDLE</span>
+        </div>
+        <div class="telem-cell">
+          <span class="telem-label">Front Dist</span>
+          <span id="telem-dist" class="telem-val">-- cm</span>
+        </div>
+        <div class="telem-cell">
+          <span class="telem-label">Servo Angle</span>
+          <span id="telem-angle" class="telem-val">90°</span>
+        </div>
+        <div class="telem-cell">
+          <span class="telem-label">Speed / Uptime</span>
+          <span id="telem-speed" class="telem-val">65% / 0s</span>
+        </div>
+      </div>
+
+      <!-- Status Diagnostic Message -->
+      <div id="status-msg-banner" class="status-msg-banner" role="status">
+        Ready to connect. Ensure your phone is connected to the tank's Wi-Fi network.
+      </div>
+    </section>
+
+    <!-- Right Column: Drive Controls & Settings -->
+    <section class="panel-card" aria-labelledby="controls-panel-title">
+      <div class="card-header">
+        <h2 id="controls-panel-title" class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Tank Drive Controls
+        </h2>
+        <span class="telem-label">TOUCH / WASD</span>
+      </div>
+
+      <!-- Directional D-Pad -->
+      <div class="dpad-container">
+        <div class="dpad-grid" role="group" aria-label="Drive Direction Controls">
+          <!-- Forward -->
+          <button id="btn-forward" class="ctrl-btn btn-up" aria-label="Drive Forward" title="Forward (W / Up Arrow)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l-8 8h6v8h4v-8h6z"/></svg>
+          </button>
+
+          <!-- Left -->
+          <button id="btn-left" class="ctrl-btn btn-left" aria-label="Turn Left" title="Turn Left (A / Left Arrow)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l8-8v6h8v4h-8v6z"/></svg>
+          </button>
+
+          <!-- Emergency / Prominent STOP -->
+          <button id="btn-stop" class="ctrl-btn btn-stop" aria-label="Emergency Stop" title="Halt Tank (Spacebar / Esc)">
+            STOP
+          </button>
+
+          <!-- Right -->
+          <button id="btn-right" class="ctrl-btn btn-right" aria-label="Turn Right" title="Turn Right (D / Right Arrow)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12l-8-8v6h-8v4h8v6z"/></svg>
+          </button>
+
+          <!-- Reverse -->
+          <button id="btn-reverse" class="ctrl-btn btn-down" aria-label="Drive Reverse" title="Reverse (S / Down Arrow)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20l8-8h-6v-8h-4v8h-6z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Speed Control -->
+      <div class="speed-control-group">
+        <div class="speed-header">
+          <span class="speed-label">Motor Speed Limit</span>
+          <span id="speed-display" class="speed-value">65%</span>
+        </div>
+        <input
+          type="range"
+          id="speed-slider"
+          class="speed-slider"
+          min="10"
+          max="100"
+          step="5"
+          value="65"
+          aria-label="Adjust motor speed limit"
+        />
+        <div class="speed-presets">
+          <button class="preset-btn" data-speed="35">35% Crawl</button>
+          <button class="preset-btn" data-speed="65">65% Cruise</button>
+          <button class="preset-btn" data-speed="100">100% Boost</button>
+        </div>
+      </div>
+
+      <!-- Mode & Harmless Simulation Effect -->
+      <div class="action-buttons-group">
+        <!-- Obstacle Mode Toggle -->
+        <button id="btn-mode-toggle" class="action-btn" aria-label="Toggle obstacle stopping mode">
+          <span id="btn-mode-title">Mode: Auto Stop</span>
+          <span class="action-btn-sub">Halt on obstacle</span>
+        </button>
+
+        <!-- Harmless Simulation Effect (Strictly labeled as simulation) -->
+        <button id="btn-effect" class="action-btn btn-effect" aria-label="Simulate muzzle flash and sound effect">
+          <span>⚡ Simulated Effect</span>
+          <span class="action-btn-sub">Harmless LED / Sound only</span>
+        </button>
+      </div>
+
+      <div class="kbd-hint">
+        Keyboard: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> | Stop: <kbd>Space</kbd>
+      </div>
+
+      <!-- Connection / Device Settings Section -->
+      <div class="settings-section">
+        <button id="settings-toggle-btn" class="settings-toggle" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Device Connection Settings
+        </button>
+        <div id="settings-panel" class="settings-content">
+          <label for="ws-url-input" class="telem-label">Target ESP WebSocket URL</label>
+          <div class="input-row">
+            <input
+              type="text"
+              id="ws-url-input"
+              class="text-input"
+              value="ws://192.168.4.1:81/"
+              placeholder="ws://192.168.4.1:81/"
+              aria-label="ESP WebSocket URL"
+            />
+            <button id="ws-save-btn" class="save-btn">Connect</button>
+          </div>
+          <div class="input-help">
+            When served from ESP LittleFS, auto-connects to <code>ws://&lt;host&gt;:81/</code>. When hosted on Apache, enter the IP assigned to your ESP on the shared Wi-Fi network. Note: Apache cannot reach an ESP on a separate isolated Wi-Fi AP.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
