@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   // Use relative base path so assets load correctly from ESP8266 LittleFS root
   // as well as Apache subdirectories (e.g. http://localhost/panzer/).
   base: './',

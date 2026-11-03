@@ -283,14 +283,28 @@ static void handleWebSocketMessage(uint8_t num, uint8_t *payload, size_t length)
     return;
   }
 
-  // 4. Scanner Config command (1 Scanner Servo: 0-180 full sweep and mode)
+  // 4. Scanner Config command (Full parameters: resolution, speed/settle, limits, calibration, temp)
   if (strcmp(type, "scanner_config") == 0) {
-    int minAngle = doc["minAngle"] | 0;
-    int maxAngle = doc["maxAngle"] | 180;
-    int stepDeg = doc["stepDeg"] | 10;
-    const char *modeStr = doc["mode"] | "auto";
+    float minAngle = doc["minAngle"] | 0.0f;
+    float maxAngle = doc["maxAngle"] | 180.0f;
+    float stepDeg = doc["stepDeg"] | 1.0f;
+    int settleMs = doc["settleMs"] | 15;
+    float minDistCm = doc["minDistCm"] | 2.0f;
+    float maxDistCm = doc["maxDistCm"] | 250.0f;
+    float tempC = doc["tempC"] | 20.0f;
+    float calibOffsetCm = doc["calibOffsetCm"] | 0.0f;
+    bool running = doc["scanning"] | true;
+
     scannerSetConfig(minAngle, maxAngle, stepDeg);
-    scannerSetMode(strcmp(modeStr, "manual") == 0 ? ScannerMode::MANUAL : ScannerMode::AUTO);
+    scannerSetScanParams(stepDeg, settleMs, minDistCm, maxDistCm, tempC, calibOffsetCm, running);
+    lastCommandTime = millis();
+    return;
+  }
+
+  // 4a. Manual Angle positioning command
+  if (strcmp(type, "manual_angle") == 0) {
+    float angle = doc["angle"] | 90.0f;
+    scannerSetAngle(angle);
     lastCommandTime = millis();
     return;
   }
@@ -298,18 +312,18 @@ static void handleWebSocketMessage(uint8_t num, uint8_t *payload, size_t length)
   // 4b. Scanner Manual Stepping & Single Ping command
   if (strcmp(type, "scanner_manual") == 0) {
     const char *action = doc["action"] | "";
-    int stepDeg = doc["stepDeg"] | 0;
+    float stepDeg = doc["stepDeg"] | 1.0f;
     if (strcmp(action, "step_left") == 0) {
       scannerStep(-1, stepDeg);
     } else if (strcmp(action, "step_right") == 0) {
       scannerStep(1, stepDeg);
     } else if (strcmp(action, "set_angle") == 0) {
-      int angle = doc["angle"] | 90;
+      float angle = doc["angle"] | 90.0f;
       scannerSetAngle(angle);
     } else if (strcmp(action, "ping") == 0) {
       scannerTriggerPing();
     } else if (strcmp(action, "auto") == 0) {
-      scannerSetMode(ScannerMode::AUTO);
+      scannerSetScanning(true);
     }
     lastCommandTime = millis();
     return;
@@ -464,26 +478,31 @@ void webHandlerLoop() {
     }
   }
 
-  // 4. Broadcast new radar scan sample
+  // 4. Broadcast new radar scan sample (Enhanced with raw distance, confidence, and timestamp)
   if (scannerHasNewSample()) {
-    int angle;
-    float distCm;
-    bool valid;
-    scannerGetLastSample(angle, distCm, valid);
+    float angle = 0.0f;
+    float distCm = 0.0f;
+    float rawDistCm = 0.0f;
+    bool valid = false;
+    float confidence = 0.0f;
+    scannerGetLastSample(angle, distCm, rawDistCm, valid, confidence);
 
     JsonDocument scanDoc;
     scanDoc["type"] = "scan";
     scanDoc["v"] = 2;
-    scanDoc["angle"] = angle;
+    scanDoc["angle"] = round(angle * 10.0f) / 10.0f;
     scanDoc["distCm"] = valid ? round(distCm * 10.0f) / 10.0f : -1.0f;
+    scanDoc["rawDistCm"] = (rawDistCm > 0.0f) ? round(rawDistCm * 10.0f) / 10.0f : -1.0f;
     scanDoc["valid"] = valid;
+    scanDoc["confidence"] = round(confidence);
+    scanDoc["t"] = millis();
 
     String scanJson;
     serializeJson(scanDoc, scanJson);
     webSocket.broadcastTXT(scanJson);
   }
 
-  // 5. Broadcast periodic telemetry (Protocol v2 with 8 actuators & AP state)
+  // 5. Broadcast periodic telemetry (Protocol v2 with 8 actuators, sensor diagnostics & AP state)
   if (now - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
     lastTelemetryTime = now;
 
@@ -502,8 +521,21 @@ void webHandlerLoop() {
     telemDoc["obstacleMode"] = (currentObstacleMode == ObstacleMode::AUTO) ? "auto" : "manual";
     telemDoc["obstacle"] = scannerIsObstacleAhead();
     telemDoc["distCm"] = round(scannerGetLatestDistance() * 10.0f) / 10.0f;
-    telemDoc["sweepAngle"] = scannerGetCurrentAngle();
-    telemDoc["scannerAuto"] = scannerIsAuto();
+    telemDoc["sweepAngle"] = round(scannerGetCurrentAngle() * 100.0f) / 100.0f;
+
+    // Advanced Sensor Diagnostics
+    SensorDiagnostics diag;
+    scannerGetDiagnostics(diag);
+    telemDoc["totalReadings"] = diag.totalReadings;
+    telemDoc["rejectedReadings"] = diag.rejectedReadings;
+    telemDoc["timeoutCount"] = diag.timeoutCount;
+    telemDoc["scanCycleMs"] = diag.scanCycleDurationMs;
+    telemDoc["variance"] = round(diag.latestVariance * 10.0f) / 10.0f;
+    telemDoc["tempC"] = round(diag.currentTempC * 10.0f) / 10.0f;
+    telemDoc["calibOffset"] = round(diag.calibOffsetCm * 10.0f) / 10.0f;
+    telemDoc["scanning"] = scannerIsScanning();
+
+    telemDoc["scannerAuto"] = scannerIsScanning();
     telemDoc["aimingAngle"] = actuatorsGetAiming();
     telemDoc["steeringLeftAngle"] = actuatorsGetSteeringLeft();
     telemDoc["steeringRightAngle"] = actuatorsGetSteeringRight();

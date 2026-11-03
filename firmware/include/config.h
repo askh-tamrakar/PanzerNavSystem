@@ -45,12 +45,13 @@
 // =============================================================================
 // 1. HARDWARE PROFILES
 // =============================================================================
+// Profile B is the sole active profile: 8 Servos (4 Propulsion + 2 Steering + 1 Aiming + 1 Scanner)
 #define PROFILE_UNCONFIRMED             0
 #define PROFILE_A_DC_MOTORS             1
 #define PROFILE_B_PROPULSION_SERVOS     2
 
 #ifndef ACTIVE_HARDWARE_PROFILE
-#define ACTIVE_HARDWARE_PROFILE         PROFILE_UNCONFIRMED
+#define ACTIVE_HARDWARE_PROFILE         PROFILE_B_PROPULSION_SERVOS
 #endif
 
 // Profile B Propulsion Servo Type: 0 = Continuous Rotation, 1 = Positional
@@ -97,18 +98,18 @@
 #define AIMING_CENTER_ANGLE             90    // Center forward position
 #endif
 
-// Ultrasonic Scanner Servo (1 Channel: Sensor Pan Sweep)
+// Ultrasonic Scanner Servo (1 Channel: Sensor Pan Sweep - 0.25° ultra-smooth steps)
 #ifndef SCANNER_MIN_ANGLE
-#define SCANNER_MIN_ANGLE               0     // Minimum sweep angle (degrees) - Full 0-180 sweep
+#define SCANNER_MIN_ANGLE               0.0f  // Minimum sweep angle (degrees) - Full 0-180 sweep
 #endif
 #ifndef SCANNER_MAX_ANGLE
-#define SCANNER_MAX_ANGLE               180   // Maximum sweep angle (degrees) - Full 0-180 sweep
+#define SCANNER_MAX_ANGLE               180.0f// Maximum sweep angle (degrees) - Full 0-180 sweep
 #endif
 #ifndef SCANNER_STEP_DEG
-#define SCANNER_STEP_DEG                10    // Step size per measurement (divisor of 180: e.g. 5, 6, 10, 15, 20, 30)
+#define SCANNER_STEP_DEG                0.25f // Step size per measurement (0.25° ultra-smooth)
 #endif
 #ifndef SCANNER_SETTLE_MS
-#define SCANNER_SETTLE_MS               45    // Mechanical settling delay (ms)
+#define SCANNER_SETTLE_MS               15    // Mechanical settling delay (ms) for fine micro-steps
 #endif
 
 // =============================================================================
